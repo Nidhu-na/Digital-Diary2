@@ -1,0 +1,423 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes">
+  <meta name="description" content="Pro Journal & Life Tracker - Production-Grade Personal Diary Application">
+  <title>Pro Journal & Life Tracker</title>
+
+  <!-- Google Fonts: Inter & Outfit -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@500;600;700&display=swap" rel="stylesheet">
+
+  <!-- FontAwesome Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+  <!-- Chart.js for Analytics -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+
+  <!-- Canvas Confetti -->
+  <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+
+  <!-- Custom Stylesheet -->
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <!-- ==================== SPOTLIGHT COMMAND PALETTE (CTRL + K) ==================== -->
+  <div class="cmd-palette-overlay hidden" id="commandPaletteModal" role="dialog" aria-modal="true" aria-label="Command Palette">
+    <div class="cmd-palette-box glass-card">
+      <div class="cmd-input-header">
+        <i class="fas fa-terminal"></i>
+        <input type="text" id="cmdInput" placeholder="Type a command or search memories... (Press Esc to exit)" autofocus>
+        <span class="cmd-badge">Ctrl K</span>
+      </div>
+      <div class="cmd-results-list" id="cmdResultsList"></div>
+    </div>
+  </div>
+
+  <!-- ==================== SECURITY LOCK OVERLAY ==================== -->
+  <div class="lock-page hidden" id="lockPage" role="dialog" aria-modal="true" aria-label="Lock Screen">
+    <div class="lock-container glass-card">
+      <div class="lock-icon-wrapper">
+        <i class="fas fa-user-shield lock-icon"></i>
+      </div>
+      <h1>Journal Locked</h1>
+      <p>Enter your master passcode or decoy PIN to access memories</p>
+      
+      <div class="lock-input-group">
+        <input type="password" id="lockPassword" placeholder="Enter password..." aria-label="Enter lock password">
+        <button id="unlockBtn" class="btn-primary"><i class="fas fa-unlock"></i> Unlock</button>
+      </div>
+      <div class="lock-error" id="lockError" role="alert"></div>
+
+      <div class="lock-footer">
+        <span><i class="fas fa-shield-alt"></i> AES-256 Encrypted</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== MAIN APPLICATION SUITE ==================== -->
+  <div class="app" id="mainApp">
+    
+    <!-- LEFT SIDEBAR PANEL -->
+    <aside class="sidebar glass-card" aria-label="Main Navigation & Widgets">
+      
+      <!-- HEADER LOGO & ACTION BAR -->
+      <div class="sidebar-header">
+        <div class="logo">
+          <i class="fas fa-book-sparkles"></i>
+          <span>Pro Journal</span>
+        </div>
+        <div class="top-actions">
+          <button id="btnCmdPalette" title="Command Palette (Ctrl+K)" aria-label="Command Palette"><i class="fas fa-search"></i></button>
+          <button id="btnProfile" title="Profile & Achievements" aria-label="Open Profile"><i class="fas fa-user-astronaut"></i></button>
+          <button id="btnLock" title="Lock Journal (Ctrl+L)" aria-label="Lock Journal"><i class="fas fa-lock-open"></i></button>
+          <button id="btnTheme" title="Change Theme" aria-label="Theme Selector"><i class="fas fa-palette"></i></button>
+          <button id="btnDarkToggle" title="Toggle Light/Dark" aria-label="Toggle Theme Mode"><i class="fas fa-moon"></i></button>
+        </div>
+      </div>
+
+      <!-- FOCUS SOUNDSCAPES WIDGET -->
+      <div class="widget-card ambient-widget">
+        <div class="widget-title">
+          <span><i class="fas fa-headphones-alt"></i> Focus Soundscapes</span>
+          <span id="activeSoundscapeLabel" class="soundscape-status">Off</span>
+        </div>
+        <div class="soundscape-btn-grid">
+          <button class="soundscape-btn" data-type="rain" title="Rainfall Ambient"><i class="fas fa-cloud-showers-heavy"></i> Rain</button>
+          <button class="soundscape-btn" data-type="ocean" title="Ocean Waves"><i class="fas fa-water"></i> Ocean</button>
+          <button class="soundscape-btn" data-type="binaural" title="Binaural Focus Beats"><i class="fas fa-brain"></i> Focus</button>
+        </div>
+        <div class="volume-slider-row">
+          <i class="fas fa-volume-down"></i>
+          <input type="range" id="soundscapeVolume" min="0" max="1" step="0.05" value="0.3" aria-label="Ambient volume">
+          <i class="fas fa-volume-up"></i>
+        </div>
+      </div>
+
+      <!-- ON THIS DAY MEMORY FLASHBACK WIDGET -->
+      <div class="widget-card flashback-widget hidden" id="flashbackWidget">
+        <div class="widget-title">
+          <span><i class="fas fa-history"></i> On This Day Flashback</span>
+        </div>
+        <div id="flashbackContent" class="flashback-content"></div>
+      </div>
+
+      <!-- WRITING STREAK & STATS -->
+      <div class="widget-card stats-card">
+        <div class="stats-header">
+          <span class="widget-title"><i class="fas fa-fire-flame-curved"></i> Daily Streak</span>
+          <span class="streak-badge"><span id="streakCount">0</span> Days 🔥</span>
+        </div>
+        <div class="stats-grid">
+          <div class="stat-item"><div class="stat-number" id="totalEntries">0</div><div class="stat-label">Entries</div></div>
+          <div class="stat-item"><div class="stat-number" id="totalMoods">0</div><div class="stat-label">Moods</div></div>
+          <div class="stat-item"><div class="stat-number" id="wordCount">0</div><div class="stat-label">Words</div></div>
+        </div>
+      </div>
+
+      <!-- SEARCH & FILTER PANEL -->
+      <div class="widget-card search-card">
+        <div class="search-input-wrapper">
+          <i class="fas fa-search search-icon"></i>
+          <input type="text" id="searchInput" placeholder="Search memories..." aria-label="Search entries">
+          <select id="searchType" aria-label="Search filter field">
+            <option value="all">All</option>
+            <option value="title">Title</option>
+            <option value="content">Content</option>
+            <option value="tags">Tags</option>
+          </select>
+        </div>
+        <div class="filter-chips-container" id="filterChips">
+          <button class="filter-chip active" data-filter="all">All</button>
+          <button class="filter-chip" data-filter="😊 Happy">😊 Happy</button>
+          <button class="filter-chip" data-filter="🥰 Loved">🥰 Loved</button>
+          <button class="filter-chip" data-filter="😢 Sad">😢 Sad</button>
+          <button class="filter-chip" data-filter="😡 Angry">😡 Angry</button>
+          <button class="filter-chip" data-filter="⭐ Fav">⭐ Favs</button>
+          <button class="filter-chip" data-filter="📷 Photos">📷 Photos</button>
+          <button class="filter-chip" data-filter="🎙️ Audio">🎙️ Voice</button>
+        </div>
+      </div>
+
+      <!-- CALENDAR / TIMELINE SWITCHER -->
+      <div class="view-toggle">
+        <button class="active" id="btnViewCal"><i class="fas fa-calendar-alt"></i> Calendar</button>
+        <button id="btnViewTime"><i class="fas fa-stream"></i> Timeline</button>
+        <button id="btnViewGallery"><i class="fas fa-images"></i> Media</button>
+      </div>
+
+      <!-- CALENDAR WIDGET -->
+      <div class="calendar-container widget-card" id="calendarContainer">
+        <div class="calendar-header">
+          <button class="nav-btn" id="prevMonth" aria-label="Previous Month"><i class="fas fa-chevron-left"></i></button>
+          <h2 id="monthYear">July 2026</h2>
+          <button class="nav-btn" id="nextMonth" aria-label="Next Month"><i class="fas fa-chevron-right"></i></button>
+        </div>
+        <div class="weekdays">
+          <div>Su</div><div>Mo</div><div>Tu</div><div>We</div><div>Th</div><div>Fr</div><div>Sa</div>
+        </div>
+        <div class="calendar-grid" id="calendarGrid"></div>
+      </div>
+
+      <!-- TIMELINE LIST CONTAINER -->
+      <div class="timeline-container widget-card hidden" id="timelineContainer"></div>
+
+      <!-- MEDIA GALLERY LIST CONTAINER -->
+      <div class="media-gallery-container widget-card hidden" id="mediaGalleryContainer"></div>
+
+    </aside>
+
+    <!-- RIGHT MAIN WORKSPACE -->
+    <main class="main-content">
+      
+      <!-- DATE & GREETING HEADER -->
+      <header class="workspace-header">
+        <div class="date-title">
+          <h1 id="selectedDateHeader">Today</h1>
+          <span class="date-subtitle" id="selectedDateSubtitle">Write your thoughts, habits, and reflections</span>
+        </div>
+        <div class="header-actions">
+          <button id="btnAIReflect" class="btn-secondary" title="AI Writing Assistant"><i class="fas fa-robot"></i> AI Prompts</button>
+          <button id="btnSurprise" class="btn-secondary" title="Surprise Random Memory"><i class="fas fa-dice"></i> Memory Dice</button>
+          <button id="btnReport" class="btn-secondary" title="AI Executive Summary"><i class="fas fa-chart-line"></i> Summary</button>
+        </div>
+      </header>
+
+      <!-- AI WRITING PROMPT BANNER (Hidden by default) -->
+      <div class="ai-prompt-box glass-card hidden" id="aiPromptBox">
+        <div class="ai-prompt-header">
+          <span><i class="fas fa-lightbulb"></i> AI Reflection Prompt</span>
+          <button id="btnCloseAIPrompt" aria-label="Close AI Prompt"><i class="fas fa-times"></i></button>
+        </div>
+        <p id="aiPromptText">What was the highlight of your day, no matter how small?</p>
+        <button id="btnNewPrompt" class="btn-small"><i class="fas fa-sync-alt"></i> Another Prompt</button>
+      </div>
+
+      <!-- MEMORY EDITOR FORM CARD -->
+      <section class="form-card glass-card">
+        <div class="form-card-header">
+          <h3 id="formTitle"><i class="fas fa-feather-alt"></i> Create Memory</h3>
+          <span id="editingBadge" class="badge-editing hidden">Editing Mode</span>
+        </div>
+
+        <input type="text" id="title" placeholder="Memory Title..." aria-label="Memory Title">
+
+        <div class="form-row">
+          <select id="mood" aria-label="Select Mood">
+            <option value="😐 Neutral">😐 Neutral</option>
+            <option value="😊 Happy">😊 Happy</option>
+            <option value="🥰 Loved">🥰 Loved</option>
+            <option value="😢 Sad">😢 Sad</option>
+            <option value="😡 Angry">😡 Angry</option>
+          </select>
+
+          <select id="category" aria-label="Select Category">
+            <option value="General">📂 General</option>
+            <option value="Personal">👤 Personal</option>
+            <option value="Work">💼 Work</option>
+            <option value="Travel">✈️ Travel</option>
+            <option value="Health">🌿 Health</option>
+            <option value="Dreams">🌙 Dreams</option>
+          </select>
+
+          <input type="text" id="tagsInput" placeholder="Tags (e.g. #gratitude #goals)" aria-label="Tags input" style="flex:1;">
+        </div>
+
+        <!-- HABIT TRACKER & ENERGY SLIDERS -->
+        <div class="habits-slider-panel">
+          <div class="habits-checklist">
+            <span class="panel-label"><i class="fas fa-check-double"></i> Daily Habits:</span>
+            <label class="habit-chip"><input type="checkbox" id="habitMeditate"> 🧘 Meditate</label>
+            <label class="habit-chip"><input type="checkbox" id="habitRead"> 📚 Read 15m</label>
+            <label class="habit-chip"><input type="checkbox" id="habitWorkout"> 🏃 Workout</label>
+            <label class="habit-chip"><input type="checkbox" id="habitHydrate"> 💧 Hydrate</label>
+          </div>
+
+          <div class="energy-sliders-row">
+            <div class="slider-group">
+              <label for="energyRange">⚡ Energy Level: <span id="energyVal">7</span>/10</label>
+              <input type="range" id="energyRange" min="1" max="10" value="7">
+            </div>
+            <div class="slider-group">
+              <label for="focusRange">🧠 Focus Rating: <span id="focusVal">8</span>/10</label>
+              <input type="range" id="focusRange" min="1" max="10" value="8">
+            </div>
+          </div>
+        </div>
+
+        <!-- TIME CAPSULE LOCK SECTION -->
+        <div class="time-capsule-row">
+          <label class="capsule-checkbox"><input type="checkbox" id="chkTimeCapsule"> ⏳ Lock as Future Time Capsule</label>
+          <input type="date" id="timeCapsuleDate" class="hidden" aria-label="Time capsule unlock date">
+        </div>
+
+        <!-- FORMATTING TOOLBAR -->
+        <div class="rich-toolbar">
+          <button type="button" data-cmd="bold" title="Bold (**text**)"><i class="fas fa-bold"></i></button>
+          <button type="button" data-cmd="italic" title="Italic (*text*)"><i class="fas fa-italic"></i></button>
+          <button type="button" data-cmd="underline" title="Underline (<u>text</u>)"><i class="fas fa-underline"></i></button>
+          <button type="button" data-cmd="strikethrough" title="Strikethrough (~~text~~)"><i class="fas fa-strikethrough"></i></button>
+          <button type="button" data-cmd="h1" title="Heading 1 (# Heading)">H1</button>
+          <button type="button" data-cmd="h2" title="Heading 2 (## Heading)">H2</button>
+          <button type="button" data-cmd="ul" title="Bullet List (- item)"><i class="fas fa-list-ul"></i></button>
+          <button type="button" data-cmd="ol" title="Numbered List (1. item)"><i class="fas fa-list-ol"></i></button>
+          <button type="button" data-cmd="task" title="Checklist (- [ ] task)"><i class="fas fa-tasks"></i></button>
+          <button type="button" data-cmd="quote" title="Quote (> text)"><i class="fas fa-quote-right"></i></button>
+          <button type="button" data-cmd="highlight" title="Highlight text"><i class="fas fa-highlighter"></i></button>
+          <button type="button" data-cmd="code" title="Code block"><i class="fas fa-code"></i></button>
+          <button type="button" data-cmd="clear" title="Clear Editor"><i class="fas fa-eraser"></i></button>
+        </div>
+
+        <!-- TEXTAREA & VOICE WAVEFORM PANEL -->
+        <div class="textarea-wrapper">
+          <textarea id="content" rows="6" placeholder="What's on your mind today? Write freely or dictate by voice..." aria-label="Memory content"></textarea>
+          
+          <!-- VOICE RECORDING CANVAS WAVEFORM -->
+          <div class="voice-recorder-bar hidden" id="voiceRecorderBar">
+            <canvas id="waveformCanvas" width="280" height="36"></canvas>
+            <span id="voiceTimer" class="voice-timer">00:00</span>
+            <button id="btnStopVoiceRec" class="btn-small btn-danger"><i class="fas fa-stop"></i> Stop & Save Audio</button>
+          </div>
+        </div>
+
+        <!-- WORD COUNTER & SENTIMENT INDICATOR -->
+        <div class="editor-footer-bar">
+          <div class="counters">
+            <span id="wordCounter">0 words</span> | 
+            <span id="charCounter">0 chars</span> | 
+            <span id="readTimeCounter">~0 min read</span>
+          </div>
+          <div class="sentiment-tag" id="sentimentTag">
+            <span>Sentiment: Neutral 😐</span>
+          </div>
+        </div>
+
+        <!-- ACTION BUTTONS BAR -->
+        <div class="form-actions-bar">
+          <button id="btnSave" class="btn-primary"><i class="fas fa-save"></i> Save Memory</button>
+          <button id="btnVoiceDictate" class="btn-secondary"><i class="fas fa-microphone"></i> Voice Typing</button>
+          <button id="btnVoiceRecord" class="btn-secondary"><i class="fas fa-record-vinyl"></i> Record Voice Note</button>
+          <button id="btnAttachImage" class="btn-secondary"><i class="fas fa-image"></i> Attach Photo</button>
+          <button id="btnExportPDF" class="btn-secondary"><i class="fas fa-file-pdf"></i> PDF</button>
+          <button id="btnExportMD" class="btn-secondary"><i class="fas fa-file-code"></i> MD</button>
+          <button id="btnExportJSON" class="btn-secondary"><i class="fas fa-download"></i> Backup</button>
+          <button id="btnImportJSON" class="btn-secondary"><i class="fas fa-upload"></i> Restore</button>
+          <input type="file" id="importFileInput" accept=".json" class="hidden">
+        </div>
+
+        <div id="imagePreviewContainer" class="image-preview-container hidden"></div>
+        <div id="audioPreviewContainer" class="audio-preview-container hidden"></div>
+      </section>
+
+      <!-- DISPLAY MEMORIES LIST CARD -->
+      <section class="diary-card glass-card">
+        <div class="diary-header">
+          <h3><i class="fas fa-layer-group"></i> Memories Saved <span id="entryCountLabel" class="entry-count-label"></span></h3>
+        </div>
+        <div id="entryDisplay" class="entry-display-container"></div>
+      </section>
+
+      <!-- INTERACTIVE EMOTION TRENDS GRAPH -->
+      <section class="analytics-card glass-card">
+        <div class="widget-title">
+          <span><i class="fas fa-chart-area"></i> Emotional & Energy Trajectory (Chart.js)</span>
+        </div>
+        <div style="height:220px; position:relative;">
+          <canvas id="emotionTrendChart"></canvas>
+        </div>
+      </section>
+
+      <!-- ANNUAL HEATMAP & TAG CLOUD SECTION -->
+      <section class="heatmap-card glass-card">
+        <div class="widget-title">
+          <span><i class="fas fa-calendar-check"></i> 365-Day Writing Heatmap</span>
+        </div>
+        <div id="annualHeatmapContainer" class="heatmap-wrapper"></div>
+        
+        <div style="margin-top: 16px;">
+          <div class="widget-title"><span><i class="fas fa-tags"></i> Memory Tag Cloud</span></div>
+          <div id="tagCloudContainer" class="tag-cloud-wrapper"></div>
+        </div>
+      </section>
+
+    </main>
+  </div>
+
+  <!-- ==================== LIGHTBOX MEDIA MODAL ==================== -->
+  <div class="lightbox-overlay hidden" id="lightboxModal" role="dialog" aria-modal="true">
+    <div class="lightbox-content">
+      <button class="lightbox-close" id="btnCloseLightbox"><i class="fas fa-times"></i></button>
+      <img id="lightboxImage" src="" alt="Full Memory Image">
+      <div id="lightboxCaption" class="lightbox-caption"></div>
+    </div>
+  </div>
+
+  <!-- ==================== PROFILE & ACHIEVEMENTS MODAL OVERLAY ==================== -->
+  <div class="profile-overlay hidden" id="profileOverlay" role="dialog" aria-modal="true" aria-label="User Profile">
+    <div class="profile-modal glass-card">
+      <button class="profile-close" id="btnCloseProfile" aria-label="Close Profile"><i class="fas fa-times"></i></button>
+
+      <div class="profile-header">
+        <div class="profile-avatar-container">
+          <img id="profileAvatar" src="https://ui-avatars.com/api/?name=User&background=a78bfa&color=fff&size=100" alt="Profile Avatar">
+          <button id="btnUploadAvatar" class="avatar-upload-btn" title="Change Avatar"><i class="fas fa-camera"></i></button>
+        </div>
+        <h2 id="profileName">Journal User</h2>
+        <p class="profile-bio" id="profileBio">📖 Writing my story one day at a time</p>
+      </div>
+
+      <div class="profile-stats-grid">
+        <div class="profile-stat-card"><div class="profile-stat-number" id="profTotalEntries">0</div><div class="profile-stat-label">Entries</div></div>
+        <div class="profile-stat-card"><div class="profile-stat-number" id="profTotalWords">0</div><div class="profile-stat-label">Words</div></div>
+        <div class="profile-stat-card"><div class="profile-stat-number" id="profStreak">0</div><div class="profile-stat-label">Streak</div></div>
+        <div class="profile-stat-card"><div class="profile-stat-number" id="profTopMood">😐</div><div class="profile-stat-label">Top Mood</div></div>
+      </div>
+
+      <div class="profile-section">
+        <h3><i class="fas fa-award"></i> Achievements Unlocked</h3>
+        <div class="achievements-grid" id="achievementsContainer"></div>
+      </div>
+
+      <div class="profile-section">
+        <h3><i class="fas fa-sliders-h"></i> Settings & Security</h3>
+        <div class="settings-grid">
+          <button id="btnSetPassword" class="settings-btn"><i class="fas fa-key"></i> Set Master Passcode</button>
+          <button id="btnSetDecoyPassword" class="settings-btn"><i class="fas fa-user-secret"></i> Set Decoy Passcode</button>
+          <button id="btnEditName" class="settings-btn"><i class="fas fa-user-edit"></i> Change Name</button>
+          <button id="btnEditBio" class="settings-btn"><i class="fas fa-quote-left"></i> Update Bio</button>
+          <button id="btnClearData" class="settings-btn btn-danger"><i class="fas fa-trash-alt"></i> Clear All Data</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- THEME SELECTOR MODAL -->
+  <div class="modal-overlay hidden" id="themeModal">
+    <div class="modal-box glass-card">
+      <h2>🎨 Theme Customizer</h2>
+      <div class="theme-grid">
+        <button class="theme-btn" data-theme="default" style="background: linear-gradient(135deg, #a78bfa, #f472b6);">Purple Glow</button>
+        <button class="theme-btn" data-theme="ocean" style="background: linear-gradient(135deg, #60a5fa, #34d399);">Ocean Calm</button>
+        <button class="theme-btn" data-theme="forest" style="background: linear-gradient(135deg, #34d399, #10b981);">Emerald Forest</button>
+        <button class="theme-btn" data-theme="rose" style="background: linear-gradient(135deg, #fb7185, #f472b6);">Rose Petal</button>
+        <button class="theme-btn" data-theme="cyber" style="background: linear-gradient(135deg, #06b6d4, #3b82f6);">Cyber Neon</button>
+        <button class="theme-btn" data-theme="amber" style="background: linear-gradient(135deg, #f59e0b, #ef4444);">Amber Sunset</button>
+      </div>
+      <button class="btn-primary" id="btnCloseThemeModal" style="width:100%; margin-top: 16px;">Close</button>
+    </div>
+  </div>
+
+  <!-- SCRIPTS BUNDLE -->
+  <script src="storage.js"></script>
+  <script src="editor.js"></script>
+  <script src="audio-studio.js"></script>
+  <script src="ai-engine.js"></script>
+  <script src="analytics.js"></script>
+  <script src="export-import.js"></script>
+  <script src="app.js"></script>
+
+</body>
+</html>
